@@ -1,86 +1,93 @@
 ---
 theme: frankfurt
-title: 学术论文标题
-info: |
-  ## 学术论文
-  使用 Slidev 制作的学术演示文稿。
-
-  基于 Frankfurt 主题。
+title: Shorter, Tighter, FAESTer VOLEitH
+author: Tianyi Wang
+date: 2026-02-22
 class: text-center
 transition: slide-left
 mdc: true
+fonts:
+  sans: '"Times New Roman", "Microsoft YaHei", sans-serif'
+  serif: '"Times New Roman", "Microsoft YaHei", serif'
+  mono: '"Fira Code", "Microsoft YaHei", monospace'
 ---
 
-# 学术论文标题
+# Shorter, Tighter, FAESTer VOLEitH
 
-## 作者姓名
+## Shorter, Tighter, FAESTer: Optimizations and Improved (QROM) <br> Analysis for VOLE-in-the-Head Signatures
 
-### 机构名称
+### authors: Carsten Baum , Ward Beullens , Lennart Braun etc.
 
-<div class="text-sm mt-8">
-  日期：2026年2月14日
-</div>
+### presenter: Tianyi Wang
 
----
-
-# 目录
-
-<Toc minDepth="1" maxDepth="2" />
+### 2026-02-22
 
 ---
-
-# 引言
-
-在这里添加你的引言内容...
-
+section: Preliminaries
 ---
 
-# 文献综述
+# VOLE
 
-在这里添加文献综述...
+$$
+m = u\cdot \Delta + v
+$$
+
 
 ---
 
-# 方法
+# VOLEitH
 
-在这里添加研究方法...
+Prover commit first
 
----
+then calculate $\Delta$ by fait shamir
 
-# 结果
 
-在这里添加研究结果...
 
 ---
 
-# 讨论
+# GGM Tree
 
-在这里添加讨论部分...
-
----
-
-# 结论
-
-在这里添加结论...
+construct N-out-of-N-1 OT
 
 ---
 
-# 参考文献
+# BAVC
 
-在这里添加参考文献...
+**Batch All-but-One Vector Commitment**
 
----
-
-# 致谢
-
-在这里添加致谢内容...
+alter many small trees by a large tree
 
 ---
+section: FAESTer
+---
+# From Hash to PRG
 
-layout: center
-class: text-center
+construct a GGM Tree needs quiet a lot **hash function**(such as SHAKE, SHA-3)
+
+solution: alter hash function by **AES-CTR (PRG)**
+
+---
+section: Shorter
 ---
 
-# 谢谢！
+# construct $c\cdot a^2\cdot a^{16}=a$
 
-有问题吗？
+odd and even
+
+---
+section: Tighter
+---
+
+# QROM Proofs
+
+Lossy Keys
+
+证明思路从“提取私钥”转变为“区分公钥”。在归约中，将真实的公钥替换为一个没有对应私钥的“无效公钥”。攻击者如果还能伪造签名，就打破了底层证明系统的可靠性（Soundness），而不是知识可靠性（Knowledge Soundness）。这避免了在 QROM 下构造复杂的知识提取器，从而获得了更紧致的安全界
+
+---
+section: summary
+---
+
+# my idea
+
+- AES -> SM4 <br> SHA-3 -> SM3
