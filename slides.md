@@ -68,65 +68,75 @@ layout: two-cols
 
 VOLE 是 OT（Oblivious Transfer）的一个线性版本
 
-* 发送方（Sender）持有：向量 a 和 向量 b
-* 接收方（Receiver）持有：向量 x
+* 发送方（Sender）持有：向量 <span class="text-emerald-600 dark:text-emerald-400">$a$</span> 和 向量 <span class="text-emerald-600 dark:text-emerald-400">$b$</span>
+* 接收方（Receiver）持有：向量 <span class="text-amber-600 dark:text-amber-400">$x$</span>
 
-Sender 持有 $a,b$ ， Receiver 持有 $x,y$，满足：$y = a\cdot x + b$
+Sender 持有 <span class="text-emerald-600 dark:text-emerald-400">$a,b$</span> ， Receiver 持有 <span class="text-amber-600 dark:text-amber-400">$x,y$</span>，满足：$y = a\cdot x + b$
 
-其中 Sender 为证明者（Prover），且不知道 $x,y$；<br>
-Receiver 为验证者（Verifier）且不知道  $a,b$ 
+其中 Sender 为<span class="text-emerald-600 dark:text-emerald-400">证明者（Prover）</span>，且不知道 $x,y$；<br>
+Receiver 为<span class="text-amber-600 dark:text-amber-400">验证者（Verifier）</span>且不知道 $a,b$ 
 
-Prover 有 witness $w$，<br>
-P 发送 $\widetilde{w}=w-a$，同时 V 更新 $\widetilde{y}=y+\widetilde{w}\cdot x$<br>
+<v-click>
+
+Prover 有 witness <span class="text-emerald-600 dark:text-emerald-400">$w$</span>，<br>
+P 发送 <span class="text-emerald-600 dark:text-emerald-400">$\widetilde{w}=w-a$</span>，同时 V 更新 <span class="text-amber-600 dark:text-amber-400">$\widetilde{y}=y+\widetilde{w}\cdot x$</span><br>
 此时依旧满足 $\widetilde{y} = w\cdot x + b$
 
 加法门：直接线性运算（免费）<br>
 对于 $w_3=w_1+w_2$，有 $y_1+y_2=(w_1+w_2)\cdot x+(b_1+b_2)$
-乘法门：相对复杂但验证方式更多，例如最广泛使用的 QuickSilver
-对于 $w_3=w_1\cdot w_2$ —— 
+
+乘法门：相对复杂但验证方式更多，例如最广泛使用的 QuickSilver<br>
+对于 $w_3=w_1\cdot w_2$ —— 
+
+</v-click>
 
 ::right::
 
-<v-click>
-
 # QuickSilver
 
+<v-click>
+
 首先引入一组 $\widetilde{y}_r = a_r \cdot x + b_r$（用于盲化），则：<br>
-Prover 拥有：  $w_1, w_2, w_3, a_r$ 和  $b_1, b_2, b_3, b_r$<br>
-Verifier 拥有：  $x$ 和 $y_1, y_2, y_3, y_r$，其中 $y_i = w_i \cdot x + b_i$
+Prover 拥有： <span class="text-emerald-600 dark:text-emerald-400">$w_1, w_2, w_3, a_r$ 和 $b_1, b_2, b_3, b_r$</span><br>
+Verifier 拥有： <span class="text-amber-600 dark:text-amber-400">$x$ 和 $y_1, y_2, y_3, y_r$</span>，其中 $y_i = w_i \cdot x + b_i$
 
-P 计算 $A = w_1 \cdot b_2 + w_2 \cdot b_1 - b_3, B = b_1 \cdot b_2$<br>
-P 计算 $U = A + a_r, V = B + b_r$（盲化）<br>
-并发送**盲化**后的 $U$ 和 $V$ 给 Verifier<br>
-V 校验：$y_1 \cdot y_2 - y_3 \cdot x + y_r \stackrel{?}{=} U \cdot x + V$
+P 计算 <span class="text-emerald-600 dark:text-emerald-400">$A = w_1 \cdot b_2 + w_2 \cdot b_1 - b_3,\; B = b_1 \cdot b_2$</span><br>
+P 计算 <span class="text-emerald-600 dark:text-emerald-400">$U = A + a_r,\; V = B + b_r$</span>（盲化）<br>
+并发送**盲化**后的 <span class="text-emerald-600 dark:text-emerald-400">$U$</span> 和 <span class="text-emerald-600 dark:text-emerald-400">$V$</span> 给 V<br>
+V 校验：<span class="text-amber-600 dark:text-amber-400">$y_1 \cdot y_2 - y_3 \cdot x + y_r$</span> $\stackrel{?}{=}$ <span class="text-emerald-600 dark:text-emerald-400">$U$</span> $\cdot$ <span class="text-amber-600 dark:text-amber-400">$x$</span> + <span class="text-emerald-600 dark:text-emerald-400">$V$</span>
 
-多个电路的**批量验证**，V 发给 P 随机挑战 $c$<br>
-Prover 计算$A_{sum} = \sum_{i=1}^N c^i \cdot (w_{1,i} \cdot b_{2,i} + w_{2,i} \cdot b_{1,i} - b_{3,i}), B_{sum} = \sum_{i=1}^N c^i \cdot (b_{1,i} \cdot b_{2,i})$<br>
-P 仅发给 V 两个值 $U = A_{sum} + a_r, V = B_{sum} + b_r$<br>
-V 验证 $\sum_{i=1}^N \left[ c^i \cdot (y_{1,i} \cdot y_{2,i} - y_{3,i} \cdot x) \right] + y_r \stackrel{?}{=} U \cdot x + V$
+</v-click>
+<v-click>
+    
+多个电路的**批量验证**，V 发给 P 随机挑战 <span class="text-amber-600 dark:text-amber-400">$c$</span><br>
+P 计算：
+<span class="text-emerald-600 dark:text-emerald-400">$A_{sum} = \sum_{i=1}^N c^i \cdot (w_{1,i} \cdot b_{2,i} + w_{2,i} \cdot b_{1,i} - b_{3,i})$</span><br>
+<span class="text-emerald-600 dark:text-emerald-400"> $\quad\quad\quad\ B_{sum} = \sum_{i=1}^N c^i \cdot (b_{1,i} \cdot b_{2,i})$</span><br>
+P 仅发给 V 两个值 <span class="text-emerald-600 dark:text-emerald-400">$U = A_{sum} + a_r,\; V = B_{sum} + b_r$</span><br>
+V 验证：$\sum_{i=1}^N \left[ c^i \cdot (y_{1,i} \cdot y_{2,i} - y_{3,i} \cdot x) \right] + y_r \stackrel{?}{=} U \cdot x + V$
 
-这不是本次内容的重点；只需知道下面两点即可<br>
-①最初状态是 P 持有 $a,b$ 且 V 持有 $x,y$ 满足 $y = a\cdot x + b$ <br>
-②VOLE能完成零知识证明即可
+</v-click>
+<v-click>
 
----
+<div class="bg-gray-100 dark:bg-gray-800 p-3 rounded-md mt-5 border-l-4 border-blue-500 shadow-sm">
+① 最初状态是 P 持有 a,b 且 V 持有 x,y 满足 y = a* x + b <br>
+② VOLE 能完成零知识证明
+</div>
+</v-click>
+<v-click>
 
-# VOLEitH
-
-Prover commit first
-
-then calculate $\Delta$ by fait shamir
-
-VOLE是非指定验证者的，想公开验证，先证明后用证明结果的Fait-Shamir生成$\Delta$
-
-（翻出来讲23美密的那篇，挑重点再讲一讲）
+<img 
+  src="/img/VOLE_easy.png" 
+  class="absolute bottom-30 right-25 w-120 h-100" 
+/>
+</v-click>
 
 ---
 layout: two-cols
 ---
 # GGM Tree
 
-目标：construct N-out-of-N-1 OT（再具体一点，和别的对接）
+目标：构造 N-1-out-of-N OT（用于打开 N 个数值里的 N-1 个）
 
 用于打开N个数值里面的 $N-1$个数值（OT协议）
 
@@ -163,6 +173,19 @@ layout: two-cols
 
 假设需要隐藏的数字是 $r4$，则Prover向Verfier发送 $r2\ r3\ H(r4)$<br>
 Verifier可以恢复 $com$ 的但不知道 $r4$ 的信息
+
+---
+
+# VOLEitH
+
+Prover commit first
+
+then calculate $\Delta$ by fait shamir
+
+VOLE是非指定验证者的，想公开验证，先证明后用证明结果的Fait-Shamir生成$\Delta$
+
+（翻出来讲23美密的那篇，挑重点再讲一讲）
+
 
 ---
 section: BAVC[Asiacrypt24]
@@ -516,23 +539,24 @@ Lossy Keys
 
 ---
 section: summary
+layout: two-cols
 ---
 
 # 他们分别做了什么工作
 
-\[1\] 把VOLE结合MCPitH改为了VOLEitH，可以让公开可验证，并构建了基于AES的后量子签名FAEST
+\[1\]（美密23）把VOLE结合MCPitH改为了VOLEitH，<br>可以让公开可验证，并构建了基于AES的后量子签名FAEST
 
-\[2\] 引入“叶子交错”技术，使签名体积减小
+\[2\]（亚密24）引入“叶子交错”技术，使签名体积减小
 
-\[3\] 用AES-CTR(PRG)替代哈希，提升性能；利用数学关系压缩签名体积；给出QROM下的安全证明
+\[3\]（美密25）用AES-CTR(PRG)替代哈希，提升性能；<br>利用数论关系压缩签名体积；给出QROM下的安全证明
 
-> references: <br> \[1] Publicly Verifiable Zero-Knowledge and Post-Quantum Signatures from VOLE-in-the-Head (Authors: Carsten Baum, Lennart Braun, Cyprien Delpech de Saint Guilhem, et al.)  <br> \[2] One Tree to Rule Them All: Optimizing GGM Trees and OWFs for Post-Quantum Signatures (Authors: Carsten Baum, Ward Beullens, Shibam Mukherjee, et al.) <br> \[3] Shorter, Tighter, FAESTer: Optimizations and Improved (QROM) Analysis for VOLE-in-the-Head Signatures (Authors: Carsten Baum, Ward Beullens, Lennart Braun, et al.) 
+> references: <br> \[1] Publicly Verifiable Zero-Knowledge and Post-Quantum Signatures from VOLE-in-the-Head (Authors: Carsten Baum, Lennart Braun, Cyprien Delpech de Saint Guilhem, et al.)  <br> \[2] One Tree to Rule Them All: Optimizing GGM Trees and OWFs for Post-Quantum Signatures (Authors: Carsten Baum, Ward Beullens, Shibam Mukherjee, et al.) <br> \[3] Shorter, Tighter, FAESTer: Optimizations and Improved (QROM) Analysis for VOLE-in-the-Head Signatures (Authors: Carsten Baum, Ward Beullens, Lennart Braun, et al.)
 
----
+::right::
 
 # my idea
 
-国密（已完成）
+国密
 
 - AES -> SM4 （1:3结构）
 - SHA-3 -> SM3（输出长度可变）
