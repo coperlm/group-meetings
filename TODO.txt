@@ -1,0 +1,5 @@
+- 最一开始加入名词解释，全局的名词，并且是用来干啥的
+- VOLE 把之前PPT的内容搬过来，从头讲，加一个Preliminaries的Preliminaries
+- VOLEitH 把之前PPT的内容搬过来
+- 具体算法流程：直接讲FAEST的宏观布局
+- QROM证明

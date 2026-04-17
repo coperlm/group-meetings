@@ -26,11 +26,11 @@ fonts:
 section: highlight
 ---
 
-# 主要内容
+# 主要内容（这段需要加入大量的名词解释）
 
 CRYTPO2023$^{[1]}$提出VOLEitH实现基于VOLE的ZKP公开可验证，并构造了FAEST（对AES进行VOLEitH的ZKP，实现后量子签名，安全性依赖于AES的安全性）
 
-亚密2024$^{[2]}$提出BAVC优化了数据结构，原本每个门都需要的GGM树（生成一组N-out-of-N-1 OT），该论文把全部树合成为一个大树，提升性能
+Asiacrypt2024$^{[2]}$提出BAVC优化了数据结构，原本每个门都需要的GGM树（生成一组N-out-of-N-1 OT），该论文把全部树合成为一个大树，提升性能
 
 本文(CRYTPO2025)$^{[3]}$对AES的进一步优化，并且目前是NIST后量子签名候选方案，具体包括：
 
@@ -55,36 +55,59 @@ CRYTPO2023$^{[1]}$提出VOLEitH实现基于VOLE的ZKP公开可验证，并构造
 | 基于格 (Lattice) | Dilithium <br>(现 ML-DSA) | $\color{green}{\text{数十微秒级 }}$ | $\color{green}{\text{数十微秒级 }}$ | $\color{green}{\text{2.4 kB}}$ | 格困难问题 (如 LWE, SIS) |
 | 早期 MPCitH | Picnic / Banquet | $\color{red}{\text{数十毫秒级 }}$ | $\color{red}{\text{数十毫秒级 }}$ | $\color{red}{\text{12 kB - 30+ kB}}$ | 纯对称密码 (哈希) |
 | 哈希签名 | SPHINCS+ <br>(现 SLH-DSA) | $\color{red}{\text{数十至上百毫秒级}}$ | $\color{green}{\text{亚毫秒级 (< 1 ms)}}$ | $\color{red}{\text{7.8 kB - 17 kB}}$ | 纯对称密码 (哈希) |
-| 本文方案 (VOLEitH) | Optimized FAEST | 0.46 ms - 3.88 ms | 0.34 ms - 3.04 ms | 3.9 kB - 5.9 kB | 纯对称密码<br> (AES, SHAKE) |
+| 本文方案 (VOLEitH) | Optimized<br> FAEST$^{[1]}$ | 0.46 ms - 3.88 ms | 0.34 ms - 3.04 ms | 3.9 kB - 5.9 kB | 纯对称密码<br> (AES, SHAKE) |
 
-> references: \[CRYPTO2025] Shorter, Tighter, FAESTer: Optimizations and Improved (QROM) Analysis for VOLE-in-the-Head Signatures
+> references: \[1]\[CRYPTO2025] Shorter, Tighter, FAESTer: Optimizations and Improved (QROM) Analysis for VOLE-in-the-Head Signatures
 
 ---
-section: Preliminaries
+section: Preliminary
 layout: two-cols
 ---
 
 # VOLE
 
-P持有 $u,m$ ， V持有 $\Delta,v$，满足：
+VOLE 是 OT（Oblivious Transfer）的一个线性版本
 
-$$
-m = u\cdot \Delta + v
-$$
+* 发送方（Sender）持有：向量 a 和 向量 b
+* 接收方（Receiver）持有：向量 x
 
-对于每个witness $w$，P发送 $d=w-u$，V更新 $m'=m+d\cdot \Delta$（加法门是免费的）
+Sender 持有 $a,b$ ， Receiver 持有 $x,y$，满足：$y = a\cdot x + b$
 
-对于乘法门，P计算多项式 ，V检查在$\Delta$处多项式是否符合条件
+其中 Sender 为证明者（Prover），且不知道 $x,y$；<br>
+Receiver 为验证者（Verifier）且不知道  $a,b$ 
 
-例如quicksilver：
+Prover 有 witness $w$，<br>
+P 发送 $\widetilde{w}=w-a$，同时 V 更新 $\widetilde{y}=y+\widetilde{w}\cdot x$<br>
+此时依旧满足 $\widetilde{y} = w\cdot x + b$
 
-例如JesseQ：
+加法门：直接线性运算（免费）<br>
+对于 $w_3=w_1+w_2$，有 $y_1+y_2=(w_1+w_2)\cdot x+(b_1+b_2)$
+乘法门：相对复杂但验证方式更多，例如最广泛使用的 QuickSilver
+对于 $w_3=w_1\cdot w_2$ —— 
 
----
+::right::
 
-# 具体算法流程
+<v-click>
 
+# QuickSilver
 
+首先引入一组 $\widetilde{y}_r = a_r \cdot x + b_r$（用于盲化），则：<br>
+Prover 拥有：  $w_1, w_2, w_3, a_r$ 和  $b_1, b_2, b_3, b_r$<br>
+Verifier 拥有：  $x$ 和 $y_1, y_2, y_3, y_r$，其中 $y_i = w_i \cdot x + b_i$
+
+P 计算 $A = w_1 \cdot b_2 + w_2 \cdot b_1 - b_3, B = b_1 \cdot b_2$<br>
+P 计算 $U = A + a_r, V = B + b_r$（盲化）<br>
+并发送**盲化**后的 $U$ 和 $V$ 给 Verifier<br>
+V 校验：$y_1 \cdot y_2 - y_3 \cdot x + y_r \stackrel{?}{=} U \cdot x + V$
+
+多个电路的**批量验证**，V 发给 P 随机挑战 $c$<br>
+Prover 计算$A_{sum} = \sum_{i=1}^N c^i \cdot (w_{1,i} \cdot b_{2,i} + w_{2,i} \cdot b_{1,i} - b_{3,i}), B_{sum} = \sum_{i=1}^N c^i \cdot (b_{1,i} \cdot b_{2,i})$<br>
+P 仅发给 V 两个值 $U = A_{sum} + a_r, V = B_{sum} + b_r$<br>
+V 验证 $\sum_{i=1}^N \left[ c^i \cdot (y_{1,i} \cdot y_{2,i} - y_{3,i} \cdot x) \right] + y_r \stackrel{?}{=} U \cdot x + V$
+
+这不是本次内容的重点；只需知道下面两点即可<br>
+①最初状态是 P 持有 $a,b$ 且 V 持有 $x,y$ 满足 $y = a\cdot x + b$ <br>
+②VOLE能完成零知识证明即可
 
 ---
 
@@ -96,6 +119,7 @@ then calculate $\Delta$ by fait shamir
 
 VOLE是非指定验证者的，想公开验证，先证明后用证明结果的Fait-Shamir生成$\Delta$
 
+（翻出来讲23美密的那篇，挑重点再讲一讲）
 
 ---
 layout: two-cols
@@ -112,7 +136,7 @@ layout: two-cols
 
 1. 对每个数字进行哈希，然后计算一起的哈希
 2. 验证者选择第 $p$ 个数字
-3. 证明者公开其他 $N-1$ 个节点的信息以及 第 $p$ 个数字的哈希<br>
+3. 证明者公开其他 $N-1$ 个节点的信息和 第 $p$ 个数字的哈希<br>
 即  $\{a_i\}_{i\in N\land i\neq p}$ 和 $H(a_p)$
 4. 验证者计算 $N-1$ 个节点的哈希，最终检查承诺
 
@@ -141,7 +165,7 @@ layout: two-cols
 Verifier可以恢复 $com$ 的但不知道 $r4$ 的信息
 
 ---
-section: BAVC[Asiacrypt 2024]
+section: BAVC[Asiacrypt24]
 ---
 
 # 单颗GGM+叶子交错
@@ -155,7 +179,6 @@ section: BAVC[Asiacrypt 2024]
 如果直接拼接（前 $N$ 个叶子给向量 $1$，第 $N+1$ 到 $2N$ 个给向量 $2$，以此类推），此时 $\tau$ 个需要被隐藏的叶子将会十分**分散**
 
 将向量的索引**交错映射**到树的叶子上：树的第 0 个叶子对应第 1 个向量的第 0 个位置；树的第 1 个叶子对应第 2 个向量的第 0 个位置...。当隐藏的节点聚集在一起时，它们的路径会在树的较低层级（靠近叶子）就发生合并。
-
 
 ---
 
@@ -447,13 +470,35 @@ section: Shorter
 
 # 压缩
 
-AES S-box(y=x^{-1}) 验证 x\cdot y = 1（二次约束）
+核心问题：S-box需要执行 $y=x^{-1}$ 这一 $\mathbb{F}_{2^8}$ 上的运算，每个S盒都要这个8bit的证明。这意味着 Prover 必须把每一轮 S-box 的输出作为 Witness 发送给 Verifier
 
-构造三次约束： $c\cdot a^2\cdot a^{16}=a$
+AES 的运算域 $\mathbb{F}_{2^8}$ ​可以看作是 $\mathbb{F}_{2^4}$​ 的二次扩域，引入两个映射<br>
+范数（乘法投影）映射到 $\mathbb{F}_{2^4}$ 上：$N(a)=a^{17}\in\mathbb{F}_{2^4}$ <br>
+迹（加法投影）映射到 $\mathbb{F}_{2}$ 上：$Tr(a) = a + a^2 + a^4 + a^8 + a^{16} + a^{32} + a^{64} + a^{128}\in\mathbb{F}_{2}$
 
-odd and even
+偶数轮：
 
-通信量 8 8 -> 4 8
+计算新witness为 $c=(N(a))^{-1}=a^{-17}$<br>
+原本的关系为 $c\cdot a^{17}=1$，为避免除零错误，同乘 $a$ 得到 $c\cdot a^2\cdot a^{16}=a$<br>
+从 $a$ 计算 $a^2$ 和 $a^{16}$ 都是线性的（同时具备可加性和齐次性），无须额外通讯<br>
+故有a和c就可以证明该S-box的电路<br>
+伽罗瓦理论：任意元素 $z\in \mathbb{F}_{2^8}$ 的第 $i$ 个比特可以通过计算迹 $Tr(\beta_i​\cdot z)$ 得到（其中 $\beta_i$​ 是基底，即和模不可约多项式相关的常数）<br>
+若要恢复 $y\in\mathbb{F}_{2^8}$（这一轮输出也是下一轮输入），只需利用 $y=a^{-1}=a^{-17}\cdot a^{16}=c\cdot a^{16}$，通过计算 $Tr(\beta_i\cdot c\cdot a^{16})$，即可完全恢复出 y 的所有比特并用于下一轮计算。
+
+奇数轮：
+
+Prover 仍然提交完整的 8-bit S-box 输出 $y=x^{-1}$；为支持 0 输入，检查 $x^2y=x\land xy^2=y$
+
+---
+
+待补充的理论基础：
+- 二次扩域
+- 范数和迹
+- 平方是的线性
+- 伽罗瓦理论
+- 为什么奇偶轮换，如果都压缩会如何
+- 缺个例子
+- 和VOLE结合
 
 ---
 section: Tighter
@@ -463,29 +508,31 @@ section: Tighter
 
 Lossy Keys
 
-证明思路从“提取私钥”转变为“区分公钥”。在归约中，将真实的公钥替换为一个没有对应私钥的“无效公钥”。攻击者如果还能伪造签名，就打破了底层证明系统的可靠性（Soundness），而不是知识可靠性（Knowledge Soundness）。这避免了在 QROM 下构造复杂的知识提取器，从而获得了更紧致的安全界
+**痛点引入：** 传统的 Fiat-Shamir 变换在量子随机预言机模型 (QROM) 下会遭受严重的归约损失，且无法紧致地证明基于哈希树的签名
+
+* **有损公钥 (Lossy Keys) 技术：** 讲解证明如何绕过“提取私钥”的难题。论文利用 AES 密钥生成算法的特性，将公钥替换为“不存在对应私钥的无效公钥”（因为 FAEST 拒绝采样了部分无效密钥，导致至少 1/4 的公钥在图像外）。证明思路从“提取私钥”转变为“区分公钥”。在归约中，将真实的公钥替换为一个没有对应私钥的“无效公钥”。攻击者如果还能伪造签名，就打破了底层证明系统的可靠性（Soundness），而不是知识可靠性（Knowledge Soundness）。这避免了在 QROM 下构造复杂的知识提取器，从而获得了更紧致的安全界
+* **安全归约逻辑：** 在面对这种 Lossy Key 时，攻击者如果还能伪造签名，就直接打破了底层信息论证明系统的 **Soundness**，而不再是 Knowledge Soundness。这结合全新的 **Quantum-List Unpredictability** 定义，使得 FAEST 在 QROM 下获得了极度紧致的安全界。
+
 
 ---
-section: my idea
+section: summary
 ---
 
-# 国密
+# 他们分别做了什么工作
 
-AES -> SM4 
+\[1\] 把VOLE结合MCPitH改为了VOLEitH，可以让公开可验证，并构建了基于AES的后量子签名FAEST
 
-SHA-3 -> SM3
+\[2\] 引入“叶子交错”技术，使签名体积减小
 
----
+\[3\] 用AES-CTR(PRG)替代哈希，提升性能；利用数学关系压缩签名体积；给出QROM下的安全证明
 
-# AES -> SM4 
-
-- ZKP部分（已完成）
-- 把AES-CTR (PRG)替换为SM4（已完成）
-- 待完成：degree-3优化<br>（SM4结构不一样，应使用1:3结构，具体而言AES是8 8 变 4 8，SM4是 8 8 8 8 变为 4 8 8 8）
-- 纯软件实现，SM4比AES快<br>（应该是因为AES的S-box实现依赖于openssl，不开openssl的时候PRG用的和zkp是一套函数导致变慢，从实现原理上，SM4效率也的确比不过AES）
+> references: <br> \[1] Publicly Verifiable Zero-Knowledge and Post-Quantum Signatures from VOLE-in-the-Head (Authors: Carsten Baum, Lennart Braun, Cyprien Delpech de Saint Guilhem, et al.)  <br> \[2] One Tree to Rule Them All: Optimizing GGM Trees and OWFs for Post-Quantum Signatures (Authors: Carsten Baum, Ward Beullens, Shibam Mukherjee, et al.) <br> \[3] Shorter, Tighter, FAESTer: Optimizations and Improved (QROM) Analysis for VOLE-in-the-Head Signatures (Authors: Carsten Baum, Ward Beullens, Lennart Braun, et al.) 
 
 ---
 
-# SHA-3 -> SM3
+# my idea
 
-- 可拓展性 -> SHA3为SHAKE结构，输出长度可变，但SM3固定 -> 解决方案：使用HMAC（待完成）
+国密（已完成）
+
+- AES -> SM4 （1:3结构）
+- SHA-3 -> SM3（输出长度可变）
