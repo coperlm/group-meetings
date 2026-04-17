@@ -2,7 +2,7 @@
 theme: frankfurt
 title: Shorter, Tighter, FAESTer VOLEitH
 author: Tianyi Wang
-date: 2026-03-unknown
+date: 2026-06-unknown
 class: text-center
 transition: slide-left
 mdc: true
@@ -136,7 +136,7 @@ layout: two-cols
 ---
 # GGM Tree
 
-目标：构造 N-1-out-of-N OT（用于打开 N 个数值里的 N-1 个）
+目标：构造 N-1-out-of-N OT（用于打开 N 个数值里的 N-1 个，由 Verifier 选择）
 
 用于打开N个数值里面的 $N-1$个数值（OT协议）
 
@@ -178,38 +178,41 @@ Verifier可以恢复 $com$ 的但不知道 $r4$ 的信息
 
 # VOLEitH
 
-Prover commit first
+有了 (N-1)-out-of-N OT，如何构建VOLE初始关系 ${\color{goldenrod}{y}} =\green{a}\cdot {\color{goldenrod}{x}}+\green{b}$
 
-then calculate $\Delta$ by fait shamir
+定义每个叶子为 $t_i$，选择的叶子（N-1不包括的那个）为 $t_\Delta$
 
-VOLE是非指定验证者的，想公开验证，先证明后用证明结果的Fait-Shamir生成$\Delta$
+P 计算 $a=\sum t_i, b=-\sum t_i\cdot i$<br>
+V 计算 $y=\sum_{i\neq\Delta}t_i\cdot(\Delta-i)$<br>
+容易得到 ${\color{goldenrod}{y}} =\green{a}\cdot {\color{goldenrod}{\Delta}}+\green{b}$ 成立
 
-（翻出来讲23美密的那篇，挑重点再讲一讲）
-
+$\Delta$ 由 P 生成承诺的哈希值决定 -> P 无法在计算 $a,b$ 的时候得到 $\Delta$ 
 
 ---
 section: BAVC[Asiacrypt24]
+layout: two-cols
 ---
 
-# 单颗GGM+叶子交错
+# 单颗GGM
 
 核心用单一大树替代很多小树
 
-旧方案：生成 $\tau$ 棵独立的树，每棵树有 $N$ 个叶子，为了隐藏每棵树的一个叶子，需要披露 $\tau\cdot\log N$ 个节点
+旧方案：生成 $\tau$ 棵独立的树，每棵树有 $N$ 个叶子，<br>为了隐藏每棵树的一个叶子，需要披露 $\tau\cdot\log N$ 个节点
 
-新方案：从一个主种子出发，生成一颗有 $L=\tau\cdot N$ 个叶子的大完全二叉树
+新方案：从一个主种子出发，<br>生成一颗有 $L=\tau\cdot N$ 个叶子的大完全二叉树
 
-如果直接拼接（前 $N$ 个叶子给向量 $1$，第 $N+1$ 到 $2N$ 个给向量 $2$，以此类推），此时 $\tau$ 个需要被隐藏的叶子将会十分**分散**
+如果直接拼接<br>即前 $N$ 个叶子给向量 $1$，第 $N+1$ 到 $2N$ 个给向量 $2$......<br>此时 $\tau$ 个需要被隐藏的叶子将会十分**分散**
 
-将向量的索引**交错映射**到树的叶子上：树的第 0 个叶子对应第 1 个向量的第 0 个位置；树的第 1 个叶子对应第 2 个向量的第 0 个位置...。当隐藏的节点聚集在一起时，它们的路径会在树的较低层级（靠近叶子）就发生合并。
+将向量的索引**交错映射**到树的叶子上：<br>树的第 0 个叶子对应第 1 个向量的第 0 个位置；<br>树的第 1 个叶子对应第 2 个向量的第 0 个位置......<br>当隐藏的节点聚集在一起时，<br>它们的路径会在树的较低层级（靠近叶子）就发生合并。
 
----
+::right::
 
 # 叶子交错
 
-假设我们要生成 **2 个向量**（τ=2），每个向量长 **4**。总共需要 2×4=8 个叶子。 大树共有 8 个叶子，编号 0 到 7。
+假设我们要生成 **2 个向量**，每个向量长 **4**。共需 2×4=8 个叶子。<br> 大树共有 8 个叶子，编号 0 到 7。
 
 ```mermaid
+%%{init: {'flowchart': {'nodeSpacing': -5, 'rankSpacing': 40}}}%%
 graph TD
     n0((0)) --> n1((1))
     n0((0)) --> n2((2))
@@ -225,17 +228,12 @@ graph TD
     n5((5)) --> n12((12))
     n6((6)) --> n13((13))
     n6((6)) --> n14((14))
-    n7 -.-> idx0[0]
-    n8 -.-> idx1[1]
-    n9 -.-> idx2[2]
-    n10 -.-> idx3[3]
-    n11 -.-> idx4[4]
-    n12 -.-> idx5[5]
-    n13 -.-> idx6[6]
-    n14 -.-> idx7[7]
+    n7-.->idx0[0];n8-.->idx1[1];n9-.->idx2[2];n10-.->idx3[3]
+    n11-.->idx4[4];n12-.->idx5[5];n13-.->idx6[6];n14-.->idx7[7]
     classDef labelStyle fill:none,stroke:none,font-weight:bold,color:#e63946;
     class idx0,idx1,idx2,idx3,idx4,idx5,idx6,idx7 labelStyle;
 ```
+
 
 
 ---
@@ -298,7 +296,6 @@ Grinding：每次签名都会改变计数器的值，哈希生成的挑战也会
 - FAEST-128f（追求速度，尺寸稍大） $T_{open}=110$，签名时间为0.43ms，签名尺寸为6052Byte
 
 其中 $T_{open}$ 为代表 GGM 树允许披露的最大节点总数。
-
 如果超过了 $T_{open}$，则Grinding（重新计算），然后再检测有无超过阈值
 
 ---
@@ -328,165 +325,63 @@ layout: two-cols
 
 AES 有硬件指令集加速（AES-NI），比哈希计算还快
 
-问题：PRG 不具备哈希函数的抗碰撞性 -> 引入 Universal Hash / Almost-Injective PRG
+问题：PRG 不具备哈希函数的抗碰撞性<br> -> 引入 Universal Hash / Almost-Injective PRG
 
 ```
            ROOT
-         /      \ （父节点通过PRG逐层生成子节点，和之前一样）
-        r1       r2
+         /      \ （父节点通过PRG逐层生成子节点，
+        r1       r2                   和之前一样）
        /  \     /   \
      r3    r4  r5    r6
      ↓    ↓  ↓    ↓
-   H(r3) H(r4) H(r5) H(r6)
-           ↓↓↓  <- 这一步原本用的是哈希，把它改为 AES-CTR PRG
+   H(r3) H(r4) H(r5) H(r6) <- 这一步原本用的是哈希
+           ↓↓↓             把它改为 AES-CTR PRG
             com
 ```
 ::right::
 
-<br><br><br><br>
-construct a GGM Tree needs quiet a lot **hash function**(such as SHAKE, SHA-3)
+# 设计原理与组件
 
-solution: alter hash function by **AES-CTR (PRG)**
-
-旧流程：$Com=Hash(Seed,...)$
-
----
-
-基础组件：
-
-A. 基于AES计数器模式的PRG： $PRG(sd,iv,twk;m)$
-
-输入：种子 $sd$（用作AES密钥）、初始化向量 $iv$ 、微调值 $twk$ （这个微调只是个什么鬼）
-
-操作：使用 sd 作为密钥，对 (iv+twk) 进行加密生成伪随机比特流。
-
-输出： $m$ 比特长的随机串
-
-FAEST
-
-PRG 不抗碰撞，引入 Universal Hash
-
-输入随机数r
-
-使用 PRG将 r 扩展为更长的串 (sd,x_1)\leftarrow PRG(r,iv,twk;4\lambda)
-
-sd 是后续协议的种子，x_1 是额外的随机扩充
-
-使用一个通用哈希对拓展后的结果压缩 com\leftarrow H_{uhash}(sd||x_1)
-
-FAEST-EM
-
-com\leftarrow PRG(r,iv,twk;2\lambda)
-
-依赖于**Almost-Injective PRG**（几乎单射 PRG）
-
-（但是AES真的是几乎单射的吗）
-
-（EM模式和原版本的区别只有这一步在叶子节点少了一个通用哈希吗）
-
-结果：
-
-安全性：AES在固定 Key 的情况下是可逆的。但在 GGM 树中，输入 r 是作为 **Key** 使用的。对于固定输出寻找 Key 的碰撞是非常困难的
-
-- 统计上不抗碰撞（找到两个不同的 Key 使得它们产生相同的密文输出是可能的）
-- 计算上抗碰撞（尽管碰撞存在，但要找到这样两个 Key 是非常困难的，这等同于攻破 AES 的安全性）
-
-提供进一步的安全：Universal Hash -> 统计绑定（指一旦你给出了承诺（像把信放入信封），即使你有无限的计算能力，也几乎不可能找到两个不同的原始信息对应同一个承诺。）
-
-独立的 Tweaks（微调）：在 GGM 树中，不同层级和位置的节点需要使用不同的“域分离”参数，以防止不同位置产生相同的值。FAEST 使用的 `PRG(sd, iv, twk)` 结构，通过将 `twk`（微调值）加到 IV 上，再配合 CTR 模式的计数器，可以非常高效地为树中的每个节点生成独立的随机流，而无需频繁更换 AES 的 Key（换 Key 在硬件上通常比处理 IV 更慢）。
-
+* 基础 PRG：基于 AES-CTR 模式，即 $PRG(sd, iv, twk) = \text{AES}_{sd}(iv + twk)$。
+* 抗碰撞性：AES 在 Key 固定时是置换，但在 GGM 树中 $sd$ 作为 Key 使用。虽然统计上可能存在碰撞，但计算上寻找 Key 的碰撞等同于攻破 AES，因此是安全的。
+* 安全性增强：标准模式引入 Universal Hash 将计算绑定提升至统计绑定；EM 模式则直接依赖于 Almost-Injective PRG 的特性。
+* 域分离： 通过 `twk` (Tweak) 作用于 IV，确保 GGM 树中不同层级和位置的节点生成独立的随机流，避免频繁更换 AES Key 带来的硬件开销。
 ---
 layout: two-cols
 ---
 
-# 具体代码里的实现
+# 标准模式
 
- 1. 记号约定
+给定一个叶子 $(i,j)$，叶节点数值为 $k_{i,j}$，$\mathrm{iv}$ 为公共输入，<br>
+$\mathrm{tweak}_i$ 为轮内微调值，$a_i$ 为行内 Universal Hash 系数
 
-- 安全参数：$\lambda$
-- 叶子索引：$(i,j)$
-- 叶子密钥（由种子树展开得到）：$k_{i,j}$
-- 公共输入：$\mathrm{iv}$
-- 轮内 tweak：$\mathrm{tweak}_i$
-- 行内 Universal Hash 系数：$a_i$
-- 串接记号：$\|$
-
-2. 标准模式（FAEST 非 EM）叶子承诺
-
-2.1 单个叶子如何得到叶子承诺
-
-给定一个叶子 $(i,j)$，步骤如下：
-
-1. 先用 PRG 扩展得到 $4\lambda$ 比特：
-
-$X_{i,j} = \mathrm{PRG}(k_{i,j};\mathrm{iv},\mathrm{tweak}_i) \in \{0,1\}^{4\lambda}.$
-
-2. 将 $X_{i,j}$ 切分为两段（对应实现中的前后两部分）：
-
-$X_{i,j} = (x^{(0)}_{i,j}, x^{(1)}_{i,j}).$
-
-3. 计算叶子承诺（Universal Hash 压缩）：
-
-$c_{i,j} = a_i \cdot x^{(0)}_{i,j} + x^{(1)}_{i,j}.$
-
-这里 $c_{i,j}$ 就是该叶子的 commitment（代码里的 `com_ij`）。
-
-4. 同时保留种子分量（代码里的 `sd_ij`）：
-
-$sd_{i,j} = x^{(0)}_{i,j}.$
-
-2.2 如何从叶子承诺得到最终承诺
-
-最终承诺不是单叶子直接得到，而是两层聚合哈希：
-
-1. 先对固定 $i$ 的所有叶子承诺做行内聚合：
-
-$h_i = H_1\big(c_{i,0} \| c_{i,1} \| \cdots \| c_{i,N_i-1}\big).$
-
-2. 再对所有行聚合值做一次总哈希：
-
-$h = H_1\big(h_0 \| h_1 \| \cdots \| h_{\tau-1}\big).$
-
+1. 用 PRG 扩展得到 $4\lambda$ 长度的串：<br>
+$X_{i,j} = \mathrm{PRG}(k_{i,j};\mathrm{iv},\mathrm{tweak}_i) \in \{0,1\}^{4\lambda}.$<br>
+2. 将 $X_{i,j}$ 切分为两段并计算叶子承诺$c_{i,j}$：<br>
+$X_{i,j} = (x^{(0)}_{i,j},x^{(1)}_{i,j}),\quad c_{i,j} = a_i \cdot x^{(0)}_{i,j} + x^{(1)}_{i,j}.$<br>
+3. 保留种子分量：$sd_{i,j} = x^{(0)}_{i,j}.$<br>
+4. 计算哈希<br>
+先对固定 $i$ 的所有叶子承诺做行内聚合：<br>
+$h_i = H_1\big(c_{i,0} \| c_{i,1} \| \cdots \| c_{i,N_i-1}\big).$<br>
+再对所有行聚合值做一次总哈希：<br>
+$h = H_1\big(h_0 \| h_1 \| \cdots \| h_{\tau-1}\big).$<br>
 其中 $h$ 即 BAVC 层输出的最终承诺摘要。
 
 ::right::
 
-3. EM 模式（FAEST-EM）叶子承诺
+# EM 模式
 
-EM 模式的叶子承诺路径更短，不使用上述 Universal Hash 压缩。
+EM 模式的叶子承诺路径更短，不使用 Universal Hash 压缩。
 
- 3.1 单个叶子的处理
-
-给定叶子 $(i,j)$：
-
-1. 直接保留叶子密钥作为种子：
-
-$sd^{\mathrm{EM}}_{i,j} = k_{i,j}.$
-
-2. 用 PRG 输出 $2\lambda$ 比特作为叶子承诺：
-
-$c^{\mathrm{EM}}_{i,j} = \mathrm{PRG}_{2\lambda}(k_{i,j};\mathrm{iv},\mathrm{tweak}_i).$
-
-即 EM 中叶子承诺可视为直接由 PRG 给出（无单叶子 Universal Hash 步骤）。
-
-3.2 最终承诺聚合
-
-EM 模式同样通过两层 $H_1$ 聚合得到最终承诺：
-
-$h^{\mathrm{EM}}_i = H_1\big(c^{\mathrm{EM}}_{i,0} \| \cdots \| c^{\mathrm{EM}}_{i,N_i-1}\big),$
-
-$h^{\mathrm{EM}} = H_1\big(h^{\mathrm{EM}}_0 \| \cdots \| h^{\mathrm{EM}}_{\tau-1}\big).$
-
-4. 对比总结
-
-- 标准模式：
-  - 叶子承诺：PRG($4\lambda$) + Universal Hash 压缩
-  - 目标：兼顾速度与统计绑定性
-- EM 模式：
-  - 叶子承诺：PRG($2\lambda$) 直接输出
-  - 结构更简化，省去标准模式中的单叶子 Universal Hash 压缩步骤
-- 两者最终都通过两层 $H_1$ 聚合得到全局承诺摘要
-
+1. 直接保留叶子密钥作为种子：<br>
+$sd^{\mathrm{EM}}_{i,j} = k_{i,j}.$<br>
+2. 用 PRG 输出 $2\lambda$ 比特作为叶子承诺：<br>
+$c^{\mathrm{EM}}_{i,j} = \mathrm{PRG}_{2\lambda}(k_{i,j};\mathrm{iv},\mathrm{tweak}_i).$<br>
+即 EM 中叶子承诺可视为直接由 PRG 给出（无单叶子 Universal Hash 步骤）。<br>
+3. 最终承诺聚合<br>
+EM 模式同样通过两层 $H_1$ 聚合得到最终承诺：<br>
+$h^{\mathrm{EM}}_i = H_1\big(c^{\mathrm{EM}}_{i,0} \| \cdots \| c^{\mathrm{EM}}_{i,N_i-1}\big),$<br>
+$h^{\mathrm{EM}} = H_1\big(h^{\mathrm{EM}}_0 \| \cdots \| h^{\mathrm{EM}}_{\tau-1}\big).$<br>
 ---
 section: Shorter
 ---
@@ -495,21 +390,19 @@ section: Shorter
 
 核心问题：S-box需要执行 $y=x^{-1}$ 这一 $\mathbb{F}_{2^8}$ 上的运算，每个S盒都要这个8bit的证明。这意味着 Prover 必须把每一轮 S-box 的输出作为 Witness 发送给 Verifier
 
-AES 的运算域 $\mathbb{F}_{2^8}$ ​可以看作是 $\mathbb{F}_{2^4}$​ 的二次扩域，引入两个映射<br>
+AES 的运算域 $\mathbb{F}_{2^8}$ 可以看作是 $\mathbb{F}_{2^4}$ 的二次扩域，引入两个映射<br>
 范数（乘法投影）映射到 $\mathbb{F}_{2^4}$ 上：$N(a)=a^{17}\in\mathbb{F}_{2^4}$ <br>
 迹（加法投影）映射到 $\mathbb{F}_{2}$ 上：$Tr(a) = a + a^2 + a^4 + a^8 + a^{16} + a^{32} + a^{64} + a^{128}\in\mathbb{F}_{2}$
 
-偶数轮：
-
+偶数轮：<br>
 计算新witness为 $c=(N(a))^{-1}=a^{-17}$<br>
 原本的关系为 $c\cdot a^{17}=1$，为避免除零错误，同乘 $a$ 得到 $c\cdot a^2\cdot a^{16}=a$<br>
 从 $a$ 计算 $a^2$ 和 $a^{16}$ 都是线性的（同时具备可加性和齐次性），无须额外通讯<br>
 故有a和c就可以证明该S-box的电路<br>
-伽罗瓦理论：任意元素 $z\in \mathbb{F}_{2^8}$ 的第 $i$ 个比特可以通过计算迹 $Tr(\beta_i​\cdot z)$ 得到（其中 $\beta_i$​ 是基底，即和模不可约多项式相关的常数）<br>
+伽罗瓦理论：任意元素 $z\in \mathbb{F}_{2^8}$ 的第 $i$ 个比特可以通过计算迹 $Tr(\beta_i\cdot z)$ 得到（其中 $\beta_i$ 是基底，即和模不可约多项式相关的常数）<br>
 若要恢复 $y\in\mathbb{F}_{2^8}$（这一轮输出也是下一轮输入），只需利用 $y=a^{-1}=a^{-17}\cdot a^{16}=c\cdot a^{16}$，通过计算 $Tr(\beta_i\cdot c\cdot a^{16})$，即可完全恢复出 y 的所有比特并用于下一轮计算。
 
-奇数轮：
-
+奇数轮：<br>
 Prover 仍然提交完整的 8-bit S-box 输出 $y=x^{-1}$；为支持 0 输入，检查 $x^2y=x\land xy^2=y$
 
 ---
@@ -523,10 +416,7 @@ Prover 仍然提交完整的 8-bit S-box 输出 $y=x^{-1}$；为支持 0 输入�
 - 缺个例子
 - 和VOLE结合
 
----
-section: Tighter
----
-
+<!-- 
 # QROM Proofs
 
 Lossy Keys
@@ -534,7 +424,7 @@ Lossy Keys
 **痛点引入：** 传统的 Fiat-Shamir 变换在量子随机预言机模型 (QROM) 下会遭受严重的归约损失，且无法紧致地证明基于哈希树的签名
 
 * **有损公钥 (Lossy Keys) 技术：** 讲解证明如何绕过“提取私钥”的难题。论文利用 AES 密钥生成算法的特性，将公钥替换为“不存在对应私钥的无效公钥”（因为 FAEST 拒绝采样了部分无效密钥，导致至少 1/4 的公钥在图像外）。证明思路从“提取私钥”转变为“区分公钥”。在归约中，将真实的公钥替换为一个没有对应私钥的“无效公钥”。攻击者如果还能伪造签名，就打破了底层证明系统的可靠性（Soundness），而不是知识可靠性（Knowledge Soundness）。这避免了在 QROM 下构造复杂的知识提取器，从而获得了更紧致的安全界
-* **安全归约逻辑：** 在面对这种 Lossy Key 时，攻击者如果还能伪造签名，就直接打破了底层信息论证明系统的 **Soundness**，而不再是 Knowledge Soundness。这结合全新的 **Quantum-List Unpredictability** 定义，使得 FAEST 在 QROM 下获得了极度紧致的安全界。
+* **安全归约逻辑：** 在面对这种 Lossy Key 时，攻击者如果还能伪造签名，就直接打破了底层信息论证明系统的 **Soundness**，而不再是 Knowledge Soundness。这结合全新的 **Quantum-List Unpredictability** 定义，使得 FAEST 在 QROM 下获得了极度紧致的安全界。 -->
 
 
 ---
