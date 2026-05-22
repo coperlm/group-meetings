@@ -178,15 +178,72 @@ Verifier可以恢复 $com$ 的但不知道 $r4$ 的信息
 
 # VOLEitH
 
-有了 (N-1)-out-of-N OT，如何构建VOLE初始关系 ${\color{goldenrod}{y}} =\green{a}\cdot {\color{goldenrod}{x}}+\green{b}$
+有了 (N-1)-out-of-N OT，如何构建VOLE初始关系 ${\color{goldenrod}{y}} =\green{a}\cdot {\color{goldenrod}{x}}+\green{b}$ ？
 
 定义每个叶子为 $t_i$，选择的叶子（N-1不包括的那个）为 $t_\Delta$
 
 P 计算 $a=\sum t_i, b=-\sum t_i\cdot i$<br>
 V 计算 $y=\sum_{i\neq\Delta}t_i\cdot(\Delta-i)$<br>
-容易得到 ${\color{goldenrod}{y}} =\green{a}\cdot {\color{goldenrod}{\Delta}}+\green{b}$ 成立
+易得到若 P 和 V 诚实，则 ${\color{goldenrod}{y}} =\green{a}\cdot {\color{goldenrod}{\Delta}}+\green{b}$ 成立
 
-$\Delta$ 由 P 生成承诺的哈希值决定 -> P 无法在计算 $a,b$ 的时候得到 $\Delta$ 
+此时 $\Delta$ 可以是任意值，故 $\Delta$ 由 P 生成承诺的哈希值决定<br>
+$\rightarrow$ P 无法在计算 $a,b$ 之前得到 $\Delta$ <br>
+$\rightarrow$ 保证 P 不会造假
+
+---
+layout: two-cols
+---
+
+ #  VOLEitH + AES $\rightarrow$ FAEST
+
+## 一、派生初始哈希值与随机数
+
+待签名消息 $msg$ ，公钥 $pk$，随机数 $\rho\leftarrow \{0,1\}^\lambda$<br>
+计算初始哈希值绑定消息与公钥 $\mu \leftarrow H_2^0(pk||msg)$
+
+$(r,iv^{pre})\leftarrow H_3(sk||\mu||\rho)$，$iv\leftarrow H_4(iv^{pre})$<br>
+$r,iv^{pre},iv$ 用于后续生成 GGM 树（GGM 树用于构建 OT）
+
+## 二、生成 $chall_1$ 与 VOLE 承诺
+
+调用 $\text{FAEST.VOLECommit}(r, iv, l+3\lambda+B)$<br>
+其中 $l$ 为见证长度，$\tau$是 VOLE 实例数量，$B$ 是填充<br>
+以 $r$ 为根节点展开 GGM 树，输出：<br>
+\- 全局承诺 $com$：全部叶节点哈希值的承诺<br>
+\- 去承诺结构 $decom$：未隐藏节点+隐藏叶子的哈希（重构树）<br>
+\- 校准向量组 $c_1, \dots, c_{\tau-1}$：$c_i=u_0\oplus u_i$<br>
+\- VOLE 关联矩阵 $u$ 和 $V$ 满足 $Q=V+u\cdot\Delta$<br>
+最终计算 $chall_1\leftarrow H_2^1(\mu||com||c_1||...||c_{\tau-1}||iv^{pre})$
+
+::right::
+
+# 签名阶段  -\[CTYPTO23\]FAEST
+
+## 三、提交见证轨迹与 Grinding
+
+ $chall_1$ 作为种子，压缩得到 $\tilde{u}$ 和 $\tilde{V}$ <br>
+ $\tilde{u} \leftarrow \text{VOLEHash}(chall_1, u), \tilde{V} \leftarrow \text{VOLEHash}(chall_1, V)$
+
+执行 AES 电路并提取每个乘法门的见证 $w$，利用私有向量 $u$ 的前 $l$ 位对 $w$ 进行一次性密码本式掩码隐藏，得到见证承诺 $d=w\oplus u_{[0...l)}$。最终计算 $chall_2\leftarrow H_2^2(chall_1||\tilde{u}||\tilde{V}||d)$
+
+用 $w$ 、$\tilde{u}$ 和 $\tilde{V}$ 生成 QuickSilver 协议的证明系数 $(\tilde{a}_0, \tilde{a}_1, \tilde{a}_2)$。
+
+初始化 $ctr \leftarrow 0$ 计算 $chall_3 \leftarrow H_2^3(chall_2 || \tilde{a}_0 || \tilde{a}_1 || \tilde{a}_2 || ctr)$<br>
+将能够披露给验证者的部分打包 $decom_I \leftarrow \text{BAVC.Open}(decom, I)$。<br>
+包括隐藏节点路径上的兄弟节点和隐藏节点的哈希（详见 GGM 树）<br>
+要求 $chall_3$ 的最后 $w_{grind}$ 个比特全为 0 并且 $decom_I$ 不超过阈值<br>
+则执行 $ctr \leftarrow ctr + 1$ 并返回重新计算 $chall_3$ 直到满足条件 
+
+签名 $\sigma := ((c_i)_{i=1..\tau-1}, \tilde{u}, d, \tilde{a}_1, \tilde{a}_2, decom_I, chall_3, iv^{pre}, ctr)$。
+
+---
+
+# 验证阶段
+
+验证阶段在宏观流程上确实看起来像是把证明阶段"重算"了一遍，即签名 $\sigma$ 一步步重构出相同的内部状态和挑战，最终核对哈希值是否一致
+
+1. 解析签名 $\sigma$，重新计算  $\mu \leftarrow H_2^0(pk||msg), iv\leftarrow H_4(iv^{pre})$ 以及 $chall_3$​ 的末尾 $w_{grind​}$ 个比特 等内容
+2. 重构 GGM 树并检查是否符合 GGM 树的承诺，恢复 $chall_1$ 以及 $\tilde{Q}\leftarrow \text{VOLEHash}(chall_1,Q)$，$\text{VOLEHash}(\cdot)$是一个线性盲化函数故满足 $\tilde{Q}=\tilde{V}+\tilde{u}\cdot\Delta$，恢复 $chall_2$，
 
 ---
 section: BAVC[Asiacrypt24]
@@ -325,7 +382,8 @@ layout: two-cols
 
 AES 有硬件指令集加速（AES-NI），比哈希计算还快
 
-问题：PRG 不具备哈希函数的抗碰撞性<br> -> 引入 Universal Hash / Almost-Injective PRG
+问题：PRG 不具备哈希函数的抗碰撞性<br>
+$\rightarrow$ 引入 Universal Hash / Almost-Injective PRG
 
 ```
            ROOT
@@ -381,7 +439,8 @@ $c^{\mathrm{EM}}_{i,j} = \mathrm{PRG}_{2\lambda}(k_{i,j};\mathrm{iv},\mathrm{twe
 3. 最终承诺聚合<br>
 EM 模式同样通过两层 $H_1$ 聚合得到最终承诺：<br>
 $h^{\mathrm{EM}}_i = H_1\big(c^{\mathrm{EM}}_{i,0} \| \cdots \| c^{\mathrm{EM}}_{i,N_i-1}\big),$<br>
-$h^{\mathrm{EM}} = H_1\big(h^{\mathrm{EM}}_0 \| \cdots \| h^{\mathrm{EM}}_{\tau-1}\big).$<br>
+$h^{\mathrm{EM}} = H_1\big(h^{\mathrm{EM}}_0 \| \cdots \| h^{\mathrm{EM}}_{\tau-1}\big).$
+
 ---
 section: Shorter
 ---
@@ -403,7 +462,7 @@ AES 的运算域 $\mathbb{F}_{2^8}$ 可以看作是 $\mathbb{F}_{2^4}$ 的二次
 若要恢复 $y\in\mathbb{F}_{2^8}$（这一轮输出也是下一轮输入），只需利用 $y=a^{-1}=a^{-17}\cdot a^{16}=c\cdot a^{16}$，通过计算 $Tr(\beta_i\cdot c\cdot a^{16})$，即可完全恢复出 y 的所有比特并用于下一轮计算。
 
 奇数轮：<br>
-Prover 仍然提交完整的 8-bit S-box 输出 $y=x^{-1}$；为支持 0 输入，检查 $x^2y=x\land xy^2=y$
+Prover 仍然提交完整的 8-bit S-box 输出 $y=x^{-1}$；为支持 0 输入，检查 $x^2y=x\land xy^2=y$（所以对应的 QUicksilver 是二次的）
 
 ---
 
