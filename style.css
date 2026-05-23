@@ -1,0 +1,21 @@
+.slidev-layout {
+  /* 设置全局正文文字大小 */
+  p, li {
+    font-size: 22px;
+    line-height: 1.5;
+  }
+
+  /* 设置标题字体大小 */
+  h1 {
+    font-size: 2.6em;
+  }
+  h2 {
+    font-size: 2.2em;
+  }
+}
+
+blockquote {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  opacity: 0.8; /* 稍微减淡颜色，更有参考文献的感觉 */
+}
