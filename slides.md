@@ -2,7 +2,7 @@
 theme: frankfurt
 title: Shorter, Tighter, FAESTer VOLEitH
 author: Tianyi Wang
-date: 2026-06-unknown
+date: 2026-05-28
 class: text-center
 transition: slide-left
 mdc: true
@@ -20,22 +20,22 @@ fonts:
 
 ### presenter: Tianyi Wang
 
-### 2026-02-22
+### 2026-05-28
 
 ---
 section: highlight
 ---
 
-# 主要内容（这段需要加入大量的名词解释）
+# 主要内容
 
-CRYTPO2023$^{[1]}$提出VOLEitH实现基于VOLE的ZKP公开可验证，并构造了FAEST（对AES进行VOLEitH的ZKP，实现后量子签名，安全性依赖于AES的安全性）
+CRYPTO2023$^{[1]}$提出VOLEitH实现基于VOLE的ZKP公开可验证，并构造了FAEST（对AES进行VOLEitH的ZKP，实现后量子签名，安全性依赖于AES的安全性）
 
 Asiacrypt2024$^{[2]}$提出BAVC优化了数据结构，原本每个门都需要的GGM树（生成一组N-out-of-N-1 OT），该论文把全部树合成为一个大树，提升性能
 
-本文(CRYTPO2025)$^{[3]}$对AES的进一步优化，并且目前是NIST后量子签名候选方案，具体包括：
+本文(CRYPTO2025)$^{[3]}$对AES的进一步优化，并且目前是NIST后量子签名候选方案，具体包括：
 
 - 把GGM树叶子节点的哈希改为AES-CTR（PRG），加快生成速度
-- 设计3-degree检查策略，减少25%的通信量
+- 设计 3-degree 检查策略，减少25%的通信量
 - 实现了QROM下的安全性证明
 - 原本$^{[1]}$的代码是rust写的， 本文$^{[3]}$改为c语言的 $^{[4]}$并提交给了NIST
 
@@ -196,54 +196,49 @@ layout: two-cols
 
  #  VOLEitH + AES $\rightarrow$ FAEST
 
-## 一、派生初始哈希值与随机数
+### 备料
 
+$\mu \leftarrow H_2^0(pk||msg), (r, iv^{pre}) \leftarrow H_3(sk||\mu||\rho)$<br>
 待签名消息 $msg$ ，公钥 $pk$，随机数 $\rho\leftarrow \{0,1\}^\lambda$<br>
-计算初始哈希值绑定消息与公钥 $\mu \leftarrow H_2^0(pk||msg)$
+核心作用：绑定，保证签名不会被转移到其他消息<br>
+$r$ 和 $iv^{pre}$ 用于生成 GGM 树的树根
 
-$(r,iv^{pre})\leftarrow H_3(sk||\mu||\rho)$，$iv\leftarrow H_4(iv^{pre})$<br>
-$r,iv^{pre},iv$ 用于后续生成 GGM 树（GGM 树用于构建 OT）
+### 造树
 
-## 二、生成 $chall_1$ 与 VOLE 承诺
+生成 GGM 树。计算 全部叶节点哈希值的集体哈希承诺 $com$，
+<br>全量去承诺结构 $decom$，校准向量组 $c_1, \dots, c_{\tau-1}$<br>
+$(com, decom, c_i, u, V)\leftarrow\text{VOLECommit}(r, iv, \dots)$
 
-调用 $\text{FAEST.VOLECommit}(r, iv, l+3\lambda+B)$<br>
-其中 $l$ 为见证长度，$\tau$是 VOLE 实例数量，$B$ 是填充<br>
-以 $r$ 为根节点展开 GGM 树，输出：<br>
-\- 全局承诺 $com$：全部叶节点哈希值的承诺<br>
-\- 去承诺结构 $decom$：未隐藏节点+隐藏叶子的哈希（重构树）<br>
-\- 校准向量组 $c_1, \dots, c_{\tau-1}$：$c_i=u_0\oplus u_i$<br>
-\- VOLE 关联矩阵 $u$ 和 $V$ 满足 $Q=V+u\cdot\Delta$<br>
-最终计算 $chall_1\leftarrow H_2^1(\mu||com||c_1||...||c_{\tau-1}||iv^{pre})$
+计算 $chall_1\leftarrow H_2^1(\mu||com||c_1||...||c_{\tau-1}||iv^{pre})$
+
+### 准备 ZKP
+
+ $\text{VOLEHash}$ 是一个线性同态的哈希函数，计算 <br>
+ $\tilde{u} \leftarrow \text{VOLEHash}(chall_1, u), \tilde{V} \leftarrow \text{VOLEHash}(chall_1, V)$
 
 ::right::
 
-# 签名阶段  -\[CTYPTO23\]FAEST
+<br>
 
-## 三、提交见证轨迹与 Grinding
+对于 $Q = V + u \cdot \Delta$，在验证阶段 验证者计算<br> $\tilde{Q} \leftarrow \text{VOLEHash}(chall_1, Q)$，则有 $\tilde{Q} = \tilde{V} + \tilde{u} \cdot \Delta$
 
- $chall_1$ 作为种子，压缩得到 $\tilde{u}$ 和 $\tilde{V}$ <br>
- $\tilde{u} \leftarrow \text{VOLEHash}(chall_1, u), \tilde{V} \leftarrow \text{VOLEHash}(chall_1, V)$
+$w$：AES 电路每个乘法门的 witness（也就是 S-box 的电路）<br>
+利用私有向量 $u$ 的前 $l$ 位对 $w$ 进行一次性密码本式掩码隐藏，得到<br>
+计算见证承诺 $d=w\oplus u_{[0...l)}$（即乘法门的见证和掩码的偏差）<br>
+计算 $chall_2\leftarrow H_2^2(chall_1||\tilde{u}||\tilde{V}||d)$<br>
+用 $w$ 、$\tilde{u}$ 和 $\tilde{V}$ 生成 QuickSilver 协议的证明系数 $(\tilde{a}_0, \tilde{a}_1, \tilde{a}_2)$
 
-执行 AES 电路并提取每个乘法门的见证 $w$，利用私有向量 $u$ 的前 $l$ 位对 $w$ 进行一次性密码本式掩码隐藏，得到见证承诺 $d=w\oplus u_{[0...l)}$。最终计算 $chall_2\leftarrow H_2^2(chall_1||\tilde{u}||\tilde{V}||d)$
-
-用 $w$ 、$\tilde{u}$ 和 $\tilde{V}$ 生成 QuickSilver 协议的证明系数 $(\tilde{a}_0, \tilde{a}_1, \tilde{a}_2)$。
+### 抽卡并打包
 
 初始化 $ctr \leftarrow 0$ 计算 $chall_3 \leftarrow H_2^3(chall_2 || \tilde{a}_0 || \tilde{a}_1 || \tilde{a}_2 || ctr)$<br>
-将能够披露给验证者的部分打包 $decom_I \leftarrow \text{BAVC.Open}(decom, I)$。<br>
-包括隐藏节点路径上的兄弟节点和隐藏节点的哈希（详见 GGM 树）<br>
+刚好够重构 GGM 树的部分 $decom_I \leftarrow \text{BAVC.Open}(decom, I)$<br>
+包括隐藏节点路径上的兄弟节点和隐藏节点的哈希<br>
 要求 $chall_3$ 的最后 $w_{grind}$ 个比特全为 0 并且 $decom_I$ 不超过阈值<br>
-则执行 $ctr \leftarrow ctr + 1$ 并返回重新计算 $chall_3$ 直到满足条件 
+则 $ctr \leftarrow ctr + 1$ 并重新计算 $chall_3$ 直到满足条件 
 
-签名 $\sigma := ((c_i)_{i=1..\tau-1}, \tilde{u}, d, \tilde{a}_1, \tilde{a}_2, decom_I, chall_3, iv^{pre}, ctr)$。
+输出 $\sigma := ((c_i)_{i=1..\tau-1}, \tilde{u}, d, \tilde{a}_1, \tilde{a}_2, decom_I, chall_3, iv^{pre}, ctr)$
 
----
-
-# 验证阶段
-
-验证阶段在宏观流程上确实看起来像是把证明阶段"重算"了一遍，即签名 $\sigma$ 一步步重构出相同的内部状态和挑战，最终核对哈希值是否一致
-
-1. 解析签名 $\sigma$，重新计算  $\mu \leftarrow H_2^0(pk||msg), iv\leftarrow H_4(iv^{pre})$ 以及 $chall_3$​ 的末尾 $w_{grind​}$ 个比特 等内容
-2. 重构 GGM 树并检查是否符合 GGM 树的承诺，恢复 $chall_1$ 以及 $\tilde{Q}\leftarrow \text{VOLEHash}(chall_1,Q)$，$\text{VOLEHash}(\cdot)$是一个线性盲化函数故满足 $\tilde{Q}=\tilde{V}+\tilde{u}\cdot\Delta$，恢复 $chall_2$，
+验证阶段：验证者输入签名 $\sigma$，把上面步骤重走一遍，重构 GGM 树并重新计算 $\text{VOLEHash}$，把 $Q$ 代入 QuickSilver 校验多项式，并且算出来的最终常量等于证明者发过来的 $\tilde{a}_0$，则签名合法。
 
 ---
 section: BAVC[Asiacrypt24]
@@ -410,6 +405,9 @@ layout: two-cols
 
 # 标准模式
 
+私钥是 AES 密钥 k，证明的陈述是 $AES_k(x) = y$<br>
+因 AES 包含密钥扩展，故 ZKP 中需把密钥扩展的 S 盒证明
+
 给定一个叶子 $(i,j)$，叶节点数值为 $k_{i,j}$，$\mathrm{iv}$ 为公共输入，<br>
 $\mathrm{tweak}_i$ 为轮内微调值，$a_i$ 为行内 Universal Hash 系数
 
@@ -419,75 +417,114 @@ $X_{i,j} = \mathrm{PRG}(k_{i,j};\mathrm{iv},\mathrm{tweak}_i) \in \{0,1\}^{4\lam
 $X_{i,j} = (x^{(0)}_{i,j},x^{(1)}_{i,j}),\quad c_{i,j} = a_i \cdot x^{(0)}_{i,j} + x^{(1)}_{i,j}.$<br>
 3. 保留种子分量：$sd_{i,j} = x^{(0)}_{i,j}.$<br>
 4. 计算哈希<br>
-先对固定 $i$ 的所有叶子承诺做行内聚合：<br>
+对固定 $i$ 的所有叶子承诺做行内聚合：<br>
 $h_i = H_1\big(c_{i,0} \| c_{i,1} \| \cdots \| c_{i,N_i-1}\big).$<br>
-再对所有行聚合值做一次总哈希：<br>
+对所有行聚合值做一次总哈希：<br>
 $h = H_1\big(h_0 \| h_1 \| \cdots \| h_{\tau-1}\big).$<br>
-其中 $h$ 即 BAVC 层输出的最终承诺摘要。
 
 ::right::
 
 # EM 模式
 
+为了减小签名，使用 Even-Mansour 结构<br>
+把 AES 密钥当作公开常数 $x$，私钥变成了明文 $k$<br>
+证明的陈述是 $AES_x(k) \oplus k = y$
+
+由于 AES 密钥是公开的，故无须证明密钥扩展过程
+同时 PRG 承诺也可以直接更激进。
+
 EM 模式的叶子承诺路径更短，不使用 Universal Hash 压缩。
 
-1. 直接保留叶子密钥作为种子：<br>
-$sd^{\mathrm{EM}}_{i,j} = k_{i,j}.$<br>
-2. 用 PRG 输出 $2\lambda$ 比特作为叶子承诺：<br>
-$c^{\mathrm{EM}}_{i,j} = \mathrm{PRG}_{2\lambda}(k_{i,j};\mathrm{iv},\mathrm{tweak}_i).$<br>
-即 EM 中叶子承诺可视为直接由 PRG 给出（无单叶子 Universal Hash 步骤）。<br>
+1. 直接保留叶子密钥作为种子：$sd^{\mathrm{EM}}_{i,j} = k_{i,j}.$<br>
+2. 用 PRG 输出叶子承诺：$c^{\mathrm{EM}}_{i,j} = \mathrm{PRG}_{2\lambda}(k_{i,j};\mathrm{iv},\mathrm{tweak}_i)$<br>
+即 EM 中叶子承诺可视为直接由 PRG 给出（无 Universal Hash ）<br>
 3. 最终承诺聚合<br>
 EM 模式同样通过两层 $H_1$ 聚合得到最终承诺：<br>
-$h^{\mathrm{EM}}_i = H_1\big(c^{\mathrm{EM}}_{i,0} \| \cdots \| c^{\mathrm{EM}}_{i,N_i-1}\big),$<br>
+$h^{\mathrm{EM}}_i = H_1\big(c^{\mathrm{EM}}_{i,0} \| \cdots \| c^{\mathrm{EM}}_{i,N_i-1}\big),$ 
 $h^{\mathrm{EM}} = H_1\big(h^{\mathrm{EM}}_0 \| \cdots \| h^{\mathrm{EM}}_{\tau-1}\big).$
 
 ---
 section: Shorter
 ---
 
-# 压缩
+# 理论基础
 
-核心问题：S-box需要执行 $y=x^{-1}$ 这一 $\mathbb{F}_{2^8}$ 上的运算，每个S盒都要这个8bit的证明。这意味着 Prover 必须把每一轮 S-box 的输出作为 Witness 发送给 Verifier
+为什么能压缩？
+- 基础事实：AES 的 S-box 核心操作是在 $GF(2^8)$ 上求逆 $y=x^{-1}$，每个门需要提交 8-bit 的 witness
+- 二次扩域：$GF(2^8)$ 是 $GF(2^4)$ 的二次扩域
+- 范数映射：定义映射 $N(a)=a^{17}$，其中 $N(a)\in GF(2^4), a\in GF(2^8)$
+- 平方免费：
+    -  $GF(2^{任意正整数})$ 的特征都是 2，存在 1+1=0 （加法就是异或）
+    -  $2ab \equiv ab + ab$，自己异或自己始终得 0
+    -  $(a + b)^2 = a^2 + 2ab + b^2 = a^2 + b^2$
+    -  结论：若特征为 2 ，则平方表现出线性 $f(a+b)=f(a)+f(b)$
 
-AES 的运算域 $\mathbb{F}_{2^8}$ 可以看作是 $\mathbb{F}_{2^4}$ 的二次扩域，引入两个映射<br>
-范数（乘法投影）映射到 $\mathbb{F}_{2^4}$ 上：$N(a)=a^{17}\in\mathbb{F}_{2^4}$ <br>
-迹（加法投影）映射到 $\mathbb{F}_{2}$ 上：$Tr(a) = a + a^2 + a^4 + a^8 + a^{16} + a^{32} + a^{64} + a^{128}\in\mathbb{F}_{2}$
+S-box之后，还有一个仿射变换，即在$GF(2)$上做矩阵乘法（线性运算）和异或。<br>伽罗瓦理论里的迹映射表明把 $GF(2^8)$ 拆成 $GF(2)$ 做操作也是线性的<br>$\rightarrow$ AES 中我们只需关心 S-box 这一个 $GF(2^8)$ 上求逆的乘法门运算，其他的全部是加法门
 
-偶数轮：<br>
-计算新witness为 $c=(N(a))^{-1}=a^{-17}$<br>
-原本的关系为 $c\cdot a^{17}=1$，为避免除零错误，同乘 $a$ 得到 $c\cdot a^2\cdot a^{16}=a$<br>
-从 $a$ 计算 $a^2$ 和 $a^{16}$ 都是线性的（同时具备可加性和齐次性），无须额外通讯<br>
-故有a和c就可以证明该S-box的电路<br>
-伽罗瓦理论：任意元素 $z\in \mathbb{F}_{2^8}$ 的第 $i$ 个比特可以通过计算迹 $Tr(\beta_i\cdot z)$ 得到（其中 $\beta_i$ 是基底，即和模不可约多项式相关的常数）<br>
-若要恢复 $y\in\mathbb{F}_{2^8}$（这一轮输出也是下一轮输入），只需利用 $y=a^{-1}=a^{-17}\cdot a^{16}=c\cdot a^{16}$，通过计算 $Tr(\beta_i\cdot c\cdot a^{16})$，即可完全恢复出 y 的所有比特并用于下一轮计算。
-
-奇数轮：<br>
-Prover 仍然提交完整的 8-bit S-box 输出 $y=x^{-1}$；为支持 0 输入，检查 $x^2y=x\land xy^2=y$（所以对应的 QUicksilver 是二次的）
 
 ---
 
-待补充的理论基础：
-- 二次扩域
-- 范数和迹
-- 平方是的线性
-- 伽罗瓦理论
-- 为什么奇偶轮换，如果都压缩会如何
-- 缺个例子
-- 和VOLE结合
+# 压缩
 
-<!-- 
-# QROM Proofs
+核心问题：S-box需要执行 $y=x^{-1}$ 这一 $\mathbb{F}_{2^8}$ 上的运算，每个 S 盒都要这个 8bit 的证明。<br>
+$\rightarrow$ Prover 必须把每一轮 S-box 的输出作为 Witness 发送给 Verifier
 
-Lossy Keys
+待压缩数据为 $a=x$
+压缩（$\mathbb{F}_{2^8}\rightarrow\mathbb{F}_{2^4}$ ）：用范数 $N(a)=a^{17}, N(a)\in\mathbb{F}_{2^4}$ <br>
+提交（发送给验证者）：发送 $c=(N(a))^{-1}=a^{-17}$（而不是提交 $y$）<br>
+恢复（$\mathbb{F}_{2^4}\rightarrow\mathbb{F}_{2^8}$ ）：$y = a^{-1} = c \cdot a^{16}$
 
-**痛点引入：** 传统的 Fiat-Shamir 变换在量子随机预言机模型 (QROM) 下会遭受严重的归约损失，且无法紧致地证明基于哈希树的签名
+偶数轮：<br>
+证明者不需要提交完整的逆 $a^{-1}$，而是提交范数的逆 $c=(N(a))^{-1}=a^{-17}$<br>
+原本需验证的关系为 $c\cdot a^{17}=1$，同乘 $a$ 得到 $c\cdot a^2\cdot a^{16}=a$（避免除零错误）<br>
+从 $a\rightarrow a^2$ 和 $a\rightarrow a^{16}$ 都是线性（平方）操作，无须额外通讯<br>
+接着利用 $y=a^{-1}=a^{-17}\cdot a^{16}=c\cdot a^{16}$，恢复 $y\in\mathbb{F}_{2^8}$，即这一轮输出 也是下一轮输入
 
-* **有损公钥 (Lossy Keys) 技术：** 讲解证明如何绕过“提取私钥”的难题。论文利用 AES 密钥生成算法的特性，将公钥替换为“不存在对应私钥的无效公钥”（因为 FAEST 拒绝采样了部分无效密钥，导致至少 1/4 的公钥在图像外）。证明思路从“提取私钥”转变为“区分公钥”。在归约中，将真实的公钥替换为一个没有对应私钥的“无效公钥”。攻击者如果还能伪造签名，就打破了底层证明系统的可靠性（Soundness），而不是知识可靠性（Knowledge Soundness）。这避免了在 QROM 下构造复杂的知识提取器，从而获得了更紧致的安全界
-* **安全归约逻辑：** 在面对这种 Lossy Key 时，攻击者如果还能伪造签名，就直接打破了底层信息论证明系统的 **Soundness**，而不再是 Knowledge Soundness。这结合全新的 **Quantum-List Unpredictability** 定义，使得 FAEST 在 QROM 下获得了极度紧致的安全界。 -->
+奇数轮：<br>
+Prover 仍然提交完整的 8-bit S-box 输出 $y=x^{-1}$；为支持 0 输入，检查 $x^2y=x\land xy^2=y$
 
+---
+layout: two-cols
+---
+
+# 为什么这样压缩
+
+- Prover  新提交（承诺） 的变量，它的阶数就是 **1**
+- 线性操作（加法、常量乘法、有限域上的平方），阶数不增加
+- 两个变量相乘，阶数相加
+- 验证 Degree-2 和 Degree-3 的等式是可以接受的，但更多阶数不行
+
+如果连续压缩：<br>
+第零轮 ——<br>输入 $x_1$（一阶），Prover 提交 4-bit 的 $c_1$（一阶），约束方程<br>$c_1 \cdot x_1^2 \cdot x_1^{16} = x_1$（三阶），恢复输出 $y_1 = c_1 \cdot x_1^{16}$（二阶）<br>
+第一轮 ——<br>输入 $x_2=y_1$ （二阶），Prover 提交 4-bit 的 $c_2$（一阶），约束方<br>程 $c_2 \cdot x_2^2 \cdot x_2^{16} = x_2$（五阶），恢复输出 $y_2 = c_2 \cdot x_2^{16}$（三阶）<br>
+第二轮 ——<br>输入 $x_3=y_2$ （三阶），Prover 提交 4-bit 的 $c_3$（一阶），约束方<br>程 $c_3 \cdot x_3^2 \cdot x_3^{16}=x_3$（七阶），恢复输出 $y_3 = c_3 \cdot x_3^{16}$（四阶）
+
+::right::
+
+#
+<br>
+
+如果不连续压缩，而是奇偶轮分开：<br>
+第零轮（偶数轮）——<br>输入 $x_1$（一阶），Prover 提交 4-bit 的 $c_1$（一阶），约束方程 $c_1 \cdot x_1^2 \cdot x_1^{16} = x_1$（三阶），恢复输出 $y_1 = c_1 \cdot x_1^{16}$（二阶）<br>
+第一轮（奇数轮）——<br>输入 $x_2=y_1$ （二阶），Prover 提交 8-bit 的 $y_2$（一阶），约束方程 $x_2^2\cdot y_2=x_2$（三阶），无须恢复<br>
+第二轮（偶数轮）——<br>输入 $x_3=y_2$ （一阶），和第一轮次数相同
+
+<br>
+
+误区：为什么对于 $x$ 是一阶，而 $c=x^{-17}$ 也是一阶？
+
+因为在 ZKP 中，阶数是由谁来算决定的，而不是由数学公式决定<br>
+证明者发送给验证者的数据全部都是一阶，只有验证者对证明者给的数据进行乘法运算才会提升阶数
 
 ---
 section: summary
+---
+
+# 性能效率
+
+![542a38dce256a283d5c1c5f5b3a7a606.png](./images/542a38dce256a283d5c1c5f5b3a7a606.png)
+
+---
 layout: two-cols
 ---
 
