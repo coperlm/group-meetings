@@ -1,21 +1,3 @@
-# group meeting PPT template
+# GROUP-MEETINGS
 
-## quick start
-
-start
-
-```
-pnpm slidev
-```
-
-within tun mode
-
-```
-pnpm dev --remote
-```
-
-new from main
-
-```
-git chechout -b feat/yymmdd-topic
-```
+用于存放历来使用 slidev 做的 PPT

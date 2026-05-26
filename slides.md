@@ -184,6 +184,9 @@ section: 总结与展望
 - 密码学组件完全使用 AES 和 RSA ，符合题目要求
 - 支持多种格式文件上传，灵活可用
 
+项目已开源
+https://github.com/coperlm/DateSecurityFinalProject
+
 ---
 
 # 未来工作
